@@ -17,8 +17,8 @@
 #include <TVector3.h>
 #include <TRandom3.h>
 #include "JGenBeamEnergy.h"   //JLA  including new jlab routine ...
-#include "TGenPhaseSpace.h"     //  ... replacing TGenPhaseSpace
-#include "TInterpreter.h"
+#include <TGenPhaseSpace.h>     //  ... replacing TGenPhaseSpace
+#include <TInterpreter.h>
     //for HDDM format
 #include "HDDM/hddm_s.hpp"
 #include "particleType.h"
@@ -59,7 +59,7 @@ using namespace std;
 void PrintUsage (char *processName);
 int main (int argc, char **argv){
     
-    gROOT->ProcessLine(".L loader.C+");
+    gROOT->ProcessLine(".L Loader.C+");
     
     extern char *optarg; //to be used by getopt to return optionargument
     char *ProgName = argv[0];
@@ -389,48 +389,57 @@ int main (int argc, char **argv){
     target4vec.SetXYZT(0,0,0,mass_protPDG);
     TGenPhaseSpace eventPS;
     
-    
+
     
     TFile *RootOut;
     TTree *mytree;
     string mystring;//=ROOTFILE;
     string mystring2;//=mystring.substr(0, mystring.length()-4);
     mystring2.append("hddm");
+
+    
+    mystring=ROOTFILE;
+    mystring2=mystring.substr(0, mystring.length()-4);
+    mystring2.append("hddm");
+
     if (WillBeRootOutput){
-        mystring=ROOTFILE;
-        mystring2=mystring.substr(0, mystring.length()-4);
-        mystring2.append("hddm");
         cout<<"Saving events in file "<<mystring<<" and "<<mystring2<<endl;
-        
-        RootOut=new TFile(ROOTFILE, "recreate", "");	// This is ROOT output file
-        mytree = new TTree ("mytree", "A TTree object");
-        mytree->Branch("num_tracks",&num_tracks);
-        mytree->Branch("part4Vect",&part4Vect);
-        mytree->Branch("geant_ID",&geant_ID);
-        mytree->Branch("pdg_ID",&pdg_ID);
-        mytree->Branch("charge",&charge);
-        mytree->Branch("vertex",&vertex);
-        
-        std::ofstream *outfile = new ofstream(mystring2.c_str());
-        if (! outfile->is_open()) {
-            std::cerr << "Unable to open output hddm file \"" << mystring2
-            << "\" for writing." << std::endl;
-            exit(-3);
-        }
-        hddm_s::ostream *outstream = new hddm_s::ostream(*outfile);
-        
     }
-    else{
-        cout<<"File not Specified. Printing generated events on screen"<<endl;
-        PrintEvents=1;
+
+    RootOut=new TFile(ROOTFILE, "recreate", "");	// This is ROOT output file
+    mytree = new TTree ("mytree", "A TTree object");
+    mytree->Branch("num_tracks",&num_tracks);
+    mytree->Branch("part4Vect",&part4Vect);
+    mytree->Branch("geant_ID",&geant_ID);
+    mytree->Branch("pdg_ID",&pdg_ID);
+    mytree->Branch("charge",&charge);
+    mytree->Branch("vertex",&vertex);
+
+    std::ofstream *outfile = new ofstream(mystring2.c_str());
+
+    if (WillBeRootOutput && !outfile->is_open()) {
+        std::cerr << "Unable to open output hddm file \"" << mystring2
+        << "\" for writing." << std::endl;
+        exit(-3);
     }
+
+    hddm_s::ostream *outstream = new hddm_s::ostream(*outfile);
+
+
+    if (!ROOTFILE){
+    cout<<"File not Specified. Printing generated events on screen"<<endl;
+    PrintEvents=1;
+    }
+
     int numberofloops=0;
     int Nevents = 0;
     TRandom3 randomNum;
     int runNumber=900; //Run number for recosnrtuction
                        //get max weight
+
     cout << "Generating the events..." << endl;
     for (Nevents = 0; Nevents <max ;){
+
         part4Vect.clear();
         vertex.clear();
         tempVert.SetXYZ(0, 0, 65);
@@ -438,19 +447,23 @@ int main (int argc, char **argv){
             fprintf (stderr, "%d\r", Nevents);
             fflush (stderr);
         }
+
         beamE->Generate(); // Generate beam energy
+
         W=beamE->GetP4()+target4vec;
         if (eventPS.SetDecay(W, num_tracks-2, FSmasses)){
+
             part4Vect.push_back(beamE->GetP4());
             part4Vect.push_back(target4vec);
             vertex.push_back(tempVert);
             vertex.push_back(tempVert);
             
             weight = eventPS.Generate ();
+
                 //cout<<"Max weight: "<<eventPS.GetWtMax()<<endl;
             if ((num_tracks>4) && (randomNum.Uniform(0,eventPS.GetWtMax())>eventPS.GetWtMax())) // to produce flat distributions for events with more than 2 FS particles.
                 continue;
-            
+
             
             for (int fspartl=0;fspartl<num_tracks-2; fspartl++){
                 temp4vectpoint=eventPS.GetDecay(fspartl);
@@ -458,6 +471,7 @@ int main (int argc, char **argv){
                 part4Vect.push_back(temp4vect);
                 vertex.push_back(tempVert);
             }
+
             if(PrintEvents){
                 cout<<"("<<part4Vect.at(0).M()<<","<<part4Vect.at(0).Px()<<","<<part4Vect.at(0).Py()<<","<<part4Vect.at(0).Pz()<<") ("
                 <<part4Vect.at(1).M()<<","<<part4Vect.at(1).Px()<<","<<part4Vect.at(1).Py()<<","<<part4Vect.at(1).Pz()<<") -> ";
@@ -467,60 +481,82 @@ int main (int argc, char **argv){
                 cout<<endl;
             }
             
-            if (WillBeRootOutput){
-                mytree->Fill ();
-                
-                    // Start a new event
-                hddm_s::HDDM record;
-                hddm_s::PhysicsEventList pes = record.addPhysicsEvents();
-                pes().setRunNo(runNumber);
-                pes().setEventNo(Nevents); //event number
-                hddm_s::ReactionList rs = pes().addReactions();
-                hddm_s::TargetList ts = rs().addTargets();
-                ts().setType(targetType);
-                hddm_s::PropertiesList tpros = ts().addPropertiesList();
-                tpros().setCharge(ParticleCharge(targetType));
-                tpros().setMass(ParticleMass(targetType));
-                hddm_s::MomentumList tmoms = ts().addMomenta();
-                tmoms().setPx(0);
-                tmoms().setPy(0);
-                tmoms().setPz(0);
-                tmoms().setE(ParticleMass(targetType));
-                hddm_s::BeamList bs = rs().addBeams();
-                bs().setType(beamType);
-                hddm_s::PropertiesList bpros = bs().addPropertiesList();
-                bpros().setCharge(ParticleCharge(beamType));
-                bpros().setMass(ParticleMass(beamType));
-                hddm_s::MomentumList bmoms = bs().addMomenta();
-                bmoms().setPx(part4Vect.at(0).Px());
-                bmoms().setPy(part4Vect.at(0).Py());
-                bmoms().setPz(part4Vect.at(0).Pz());
-                bmoms().setE(part4Vect.at(0).E());
-                hddm_s::VertexList vs = rs().addVertices();
-                hddm_s::OriginList os = vs().addOrigins();
-                hddm_s::ProductList ps = vs().addProducts(num_tracks-2);
-                os().setT(0.0);
-                os().setVx(vertex.at(0).X());
-                os().setVy(vertex.at(0).Y());
-                os().setVz(vertex.at(0).Z());
-                
-                for (int i=2; i < num_tracks; i++) {
-                    ps(i).setType(geant_ID.[i]);
-                    ps(i).setPdgtype(pdg_ID[i]);
-                    ps(i).setId(i-1);         /* unique value for this particle within the event */
-                    ps(i).setParentid(0);     /* All internally generated particles have no parent */
-                    ps(i).setMech(0);         /* maybe this should be set to something? */
-                    hddm_s::MomentumList pmoms = ps(i).addMomenta();
-                    pmoms().setPx(part4Vect.at(i).Px());
-                    pmoms().setPy(part4Vect.at(i).Py());
-                    pmoms().setPz(part4Vect.at(i).Pz());
-                    pmoms().setE(part4Vect.at(i).E());
-                }
-            }
+
             
-            *outstream << record;
+                // Start a new event
+            hddm_s::HDDM record;
+
+            hddm_s::PhysicsEventList pes = record.addPhysicsEvents();
+
+            pes().setRunNo(runNumber);
+            pes().setEventNo(Nevents); //event number
+
+            hddm_s::ReactionList rs = pes().addReactions();
+            hddm_s::TargetList ts = rs().addTargets();
+            ts().setType(targetType);
+            hddm_s::PropertiesList tpros = ts().addPropertiesList();
+            tpros().setCharge(ParticleCharge(targetType));
+            tpros().setMass(ParticleMass(targetType));
+            hddm_s::MomentumList tmoms = ts().addMomenta();
+
+            tmoms().setPx(0);
+            tmoms().setPy(0);
+            tmoms().setPz(0);
+            tmoms().setE(ParticleMass(targetType));
+            hddm_s::BeamList bs = rs().addBeams();
+            bs().setType(beamType);
+
+            hddm_s::PropertiesList bpros = bs().addPropertiesList();
+            bpros().setCharge(ParticleCharge(beamType));
+            bpros().setMass(ParticleMass(beamType));
+            hddm_s::MomentumList bmoms = bs().addMomenta();
+            bmoms().setPx(part4Vect.at(0).Px());
+            bmoms().setPy(part4Vect.at(0).Py());
+            bmoms().setPz(part4Vect.at(0).Pz());
+            bmoms().setE(part4Vect.at(0).E());
+
+            hddm_s::VertexList vs = rs().addVertices();
+            hddm_s::OriginList os = vs().addOrigins();
+            hddm_s::ProductList ps = vs().addProducts(num_tracks-2);
+
+            os().setT(0.0);
+            os().setVx(vertex.at(0).X());
+            os().setVy(vertex.at(0).Y());
+            os().setVz(vertex.at(0).Z());
+        
+
+            for (int i=2; i < num_tracks; i++) {
+
+                ps(i-2).setType((Particle_t) geant_ID[i]);
+                ps(i-2).setPdgtype(pdg_ID[i]);
+                ps(i-2).setId(i-1);         // unique value for this particle within the event 
+                ps(i-2).setParentid(0);     // All internally generated particles have no parent 
+                ps(i-2).setMech(0);       //   maybe this should be set to something? 
+
+                hddm_s::MomentumList pmoms = ps(i-2).addMomenta();
+
+                pmoms().setPx(part4Vect.at(i).Px());
+                pmoms().setPy(part4Vect.at(i).Py());
+                pmoms().setPz(part4Vect.at(i).Pz());
+                pmoms().setE(part4Vect.at(i).E());
+
+            }
+
+            if (WillBeRootOutput){
+
+                mytree->Fill ();
+
+                *outstream << record;
+
+
+            }
+
+	     Nevents++;
+
+		
         }
-        Nevents++;
+
+    
         numberofloops=0;
         numberofloops++;
         if (numberofloops>100000){
@@ -535,56 +571,56 @@ int main (int argc, char **argv){
     }
     cout << "Number of events processed: " << Nevents << endl;
     return 0;
-}
-
-
-void PrintUsage (char *processName){
-    cout << "\nUsage: " << processName << " [options] inputFile\n\n";
-    cout << "\nExample for 1 million events saved in root file generated.root for reaction Klong p --> Ks p\n\t and kaon beam kinetic energies between 1 and 4 GeV sampled from histogram :\n\t ~>" <<processName<< "  -M1000000 -Fgenerated.root -Ekaon:histo:1.0:4.0 -Rkl2\n\n";
-    cout << "\toptions:\n";
-    cout << "\t-h\t\t\tThis information\n";
-    cout << "\t-F <filename>\t\tdirect ROOT <filename>. See below for root format\n";
-    cout << "\t-R <reaction code>\tReaction to Generate. See below for codes\n";
-    cout << "\t-M[#]\t\t\tProcess # number of events\n";
-    cout << "\t-P\t\t\tPrint generated events\n";
-    cout << "\t-E <expression>\t\tSee below Values of E is kinetic energy of beam. If no E is specified, Kaon beam is assumed\n\t\t\t\t and it is sampled from BeamProfile_kaons.root \n\n";
-    cout << "\t <reaction code> \n";
-    cout << "\tkl1\t Klong p --> K+ n \n";
-    cout << "\tkl2\t Klong p --> Ks p \n";
-    cout << "\tkl3\t Klong p --> K+ Xi \n";
-    cout << "\tg1\t g p --> K+ Lambda \n";
-    cout << "\tg2\t g p --> K+ Sigma \n";
-    cout << "\tg3\t g p --> Ks Sigma+ \n";
-    cout << "\tn1\t n p --> K+ Lambda n \n";
-    cout << "\tn2\t g p --> K+ Sigma n \n";
-    cout << "\tn3\t g p --> Ks Sigma+ n\n";
-    cout << "\tn4\t g p --> Ks Lambda p\n";
-    cout << "\tn5\t g p --> Ks Sigma p\n\n";
-    cout << "\t<expression> (no whitespace): \n";
-    cout << "\t[particle]:[distribution]:[x]:[y] \tDistribution (mono, plain, histo) for particle (kaon, neutron, photon) between [x] and [y]\n";
-    cout << "\t              or only [x] for monoenergetic beams. For histo, the beam profile is sampled from  BeamProfile_particle.root\n\n";
-    cout << "\tSome examples for option -E: \n";
-    cout << "\t[x]           \t\t\tMonoenergetic kaon beam E = [x] GeV\n";
-    cout << "\t[x]:[y]       \t\t\tPlain kaon distribution from [x] to [y] GeV\n";
-    cout << "\tmono:[x]      \t\t\tMonoenergetic kaon beam as above\n";
-    cout << "\tplain:[x]:[y] \t\t\tPlain kaon distribution as above\n";
-    cout << "\thisto \t\t\t\tDistribution according to BeamProfile_kaon.root file\n";
-    cout << "\thisto:[x] \t\t\tDistribution according to BeamProfile_kaon.root file. [x] is ignored\n";
-    cout << "\thisto:[x]:[y] \t\t\tDistribution according to BeamProfile_kaon.root between [x] and [y]\n";
-    cout << "\t[particle] \t\t\tParticle (kaon, neutron, photon) beam distribution from BeamProfile_[particle].root\n";
-    cout << "\t[particle]:[x] \t\t\tParticle (kaon, neutron, photon) monoenergetic beam E=[x] GeV\n";
-    cout << "\t[particle]:[x]:[y] \t\tParticle (kaon, neutron, photon) plain distribution from [x] to [y] GeV\n";
-    cout << "\t[particle]:mono:[x] \t\tParticle (kaon, neutron, photon) monoenergetic beam E=[x] GeV\n";
-    cout << "\t[particle]:plain:[x]:[y] \tParticle (kaon, neutron, photon) plain distribution from [x] to [y] GeV\n";
-    cout << "\t[particle]:histo \t\tDistribution according to BeamProfile_particle.root file\n";
-    cout << "\t[particle]:histo:[x] \t\tDistribution according to BeamProfile_particle.root file. [x] is ignored\n";
-    cout << "\t[particle]:histo:[x]:[y] \tDistribution according to BeamProfile_particle.root file between [x] and [y]\n\n";
-    cout << "\tRoot file contains tree named mytree and the following:\n";
-    cout << "\tnum_tracks\t int number of tracks (beam+target+generated particles)\n";
-    cout << "\tpart4Vect\t vector<TLorentzVector> vector of 4vectors of tracks (beam=part4Vect[0]; target=part4Vect[1]; genpart=part4Vect[...])\n";
-    cout << "\tgeant_ID\t vector<int> geant_ID (beam+target+generated particles)\n";
-    cout << "\tpdg_ID\t\t vector<int> pdg_ID (beam+target+genpart)\n";
-    cout << "\tcharge\t\t vector<int> charge (beam+target+genpart)\n";
-    cout << "\tvertex\t\t vector<TVector3> vertex of each track (beam=vertex[0]; target=vertex[1]; genpart=vertex[...])\n";
-    exit (0);
-}
+    }
+    
+    
+    void PrintUsage (char *processName){
+        cout << "\nUsage: " << processName << " [options] inputFile\n\n";
+        cout << "\nExample for 1 million events saved in root file generated.root for reaction Klong p --> Ks p\n\t and kaon beam kinetic energies between 1 and 4 GeV sampled from histogram :\n\t ~>" <<processName<< "  -M1000000 -Fgenerated.root -Ekaon:histo:1.0:4.0 -Rkl2\n\n";
+        cout << "\toptions:\n";
+        cout << "\t-h\t\t\tThis information\n";
+        cout << "\t-F <filename>\t\tdirect ROOT <filename>. See below for root format\n";
+        cout << "\t-R <reaction code>\tReaction to Generate. See below for codes\n";
+        cout << "\t-M[#]\t\t\tProcess # number of events\n";
+        cout << "\t-P\t\t\tPrint generated events\n";
+        cout << "\t-E <expression>\t\tSee below Values of E is kinetic energy of beam. If no E is specified, Kaon beam is assumed\n\t\t\t\t and it is sampled from BeamProfile_kaons.root \n\n";
+        cout << "\t <reaction code> \n";
+        cout << "\tkl1\t Klong p --> K+ n \n";
+        cout << "\tkl2\t Klong p --> Ks p \n";
+        cout << "\tkl3\t Klong p --> K+ Xi \n";
+        cout << "\tg1\t g p --> K+ Lambda \n";
+        cout << "\tg2\t g p --> K+ Sigma \n";
+        cout << "\tg3\t g p --> Ks Sigma+ \n";
+        cout << "\tn1\t n p --> K+ Lambda n \n";
+        cout << "\tn2\t g p --> K+ Sigma n \n";
+        cout << "\tn3\t g p --> Ks Sigma+ n\n";
+        cout << "\tn4\t g p --> Ks Lambda p\n";
+        cout << "\tn5\t g p --> Ks Sigma p\n\n";
+        cout << "\t<expression> (no whitespace): \n";
+        cout << "\t[particle]:[distribution]:[x]:[y] \tDistribution (mono, plain, histo) for particle (kaon, neutron, photon) between [x] and [y]\n";
+        cout << "\t              or only [x] for monoenergetic beams. For histo, the beam profile is sampled from  BeamProfile_particle.root\n\n";
+        cout << "\tSome examples for option -E: \n";
+        cout << "\t[x]           \t\t\tMonoenergetic kaon beam E = [x] GeV\n";
+        cout << "\t[x]:[y]       \t\t\tPlain kaon distribution from [x] to [y] GeV\n";
+        cout << "\tmono:[x]      \t\t\tMonoenergetic kaon beam as above\n";
+        cout << "\tplain:[x]:[y] \t\t\tPlain kaon distribution as above\n";
+        cout << "\thisto \t\t\t\tDistribution according to BeamProfile_kaon.root file\n";
+        cout << "\thisto:[x] \t\t\tDistribution according to BeamProfile_kaon.root file. [x] is ignored\n";
+        cout << "\thisto:[x]:[y] \t\t\tDistribution according to BeamProfile_kaon.root between [x] and [y]\n";
+        cout << "\t[particle] \t\t\tParticle (kaon, neutron, photon) beam distribution from BeamProfile_[particle].root\n";
+        cout << "\t[particle]:[x] \t\t\tParticle (kaon, neutron, photon) monoenergetic beam E=[x] GeV\n";
+        cout << "\t[particle]:[x]:[y] \t\tParticle (kaon, neutron, photon) plain distribution from [x] to [y] GeV\n";
+        cout << "\t[particle]:mono:[x] \t\tParticle (kaon, neutron, photon) monoenergetic beam E=[x] GeV\n";
+        cout << "\t[particle]:plain:[x]:[y] \tParticle (kaon, neutron, photon) plain distribution from [x] to [y] GeV\n";
+        cout << "\t[particle]:histo \t\tDistribution according to BeamProfile_particle.root file\n";
+        cout << "\t[particle]:histo:[x] \t\tDistribution according to BeamProfile_particle.root file. [x] is ignored\n";
+        cout << "\t[particle]:histo:[x]:[y] \tDistribution according to BeamProfile_particle.root file between [x] and [y]\n\n";
+        cout << "\tRoot file contains tree named mytree and the following:\n";
+        cout << "\tnum_tracks\t int number of tracks (beam+target+generated particles)\n";
+        cout << "\tpart4Vect\t vector<TLorentzVector> vector of 4vectors of tracks (beam=part4Vect[0]; target=part4Vect[1]; genpart=part4Vect[...])\n";
+        cout << "\tgeant_ID\t vector<int> geant_ID (beam+target+generated particles)\n";
+        cout << "\tpdg_ID\t\t vector<int> pdg_ID (beam+target+genpart)\n";
+        cout << "\tcharge\t\t vector<int> charge (beam+target+genpart)\n";
+        cout << "\tvertex\t\t vector<TVector3> vertex of each track (beam=vertex[0]; target=vertex[1]; genpart=vertex[...])\n";
+        exit (0);
+    }
