@@ -103,9 +103,9 @@ int main (int argc, char **argv){
                 break;
         }
     }
-    enum keywordReaction_t {kl1,kl2,kl3,g1,g2,g3,n1,n2,n3,n4,n5}; //reaction keyword
+    enum keywordReaction_t {kl1,kl2,kl3, kl4, kl5, kl6, g1,g2,g3,n1,n2,n3,n4,n5}; //reaction keyword
     
-    char* keywordReaction [] = { "kl1", "kl2", "kl3", "g1", "g2", "g3", "n1","n2","n3","n4","n5", NULL }; //reaction keyword
+    char* keywordReaction [] = { "kl1", "kl2", "kl3", "kl4", "kl5", "kl6", "g1", "g2", "g3", "n1","n2","n3","n4","n5", NULL }; //reaction keyword
     int   ReactionKey=0;
     while (REACTION && keywordReaction [ReactionKey] && strcasecmp (keywordReaction[ReactionKey], REACTION)) {
         ReactionKey++;
